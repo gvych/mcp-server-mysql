@@ -4,7 +4,16 @@ A MCP MySQL server with DDL support, permission control and operation logs.
 
 ## Version History
 
-### v2.0.1 (Latest)
+### v3.0.0 (Latest)
+- ✅ **Readonly Mode**: Added `READONLY` environment variable - when enabled, only SELECT and SHOW commands are allowed (highest priority check)
+- ✅ **Tool Prefix Support**: Added `TOOL_PREFIX` environment variable for tool name isolation and config separation
+- ✅ **Project Branding**: Added `PROJECT_NAME` environment variable for custom tool descriptions
+- ✅ **Enhanced Permission Check**: Improved `check_permissions` tool with detailed messages and readonly mode warnings
+- ✅ **Default Log Path**: Changed default log directory from `./logs` to `./.setting` (or `./.setting.<TOOL_PREFIX>` if prefix is set)
+- ✅ **Multiple Instance Support**: Full support for running multiple MySQL server instances with isolated configurations
+- ✅ **Improved CLI**: Updated CLI to support all new environment variables and log path configuration
+
+### v2.0.1
 - ✅ **DDL SQL Logging**: Added dedicated DDL SQL operation logging to `ddl.sql` file
 - ✅ **Success-Only Logging**: Only successful DDL operations are recorded to the SQL file
 - ✅ **Timestamped Entries**: Each DDL operation includes precise timestamp comments
@@ -57,9 +66,16 @@ export MYSQL_PORT=3306
 export MYSQL_USER=root
 export MYSQL_PASSWORD=your_password
 export MYSQL_DATABASE=your_database
+export READONLY=false
 export ALLOW_DDL=true
 export ALLOW_DROP=false
 export ALLOW_DELETE=false
+
+# Optional: Tool prefix for config isolation
+export TOOL_PREFIX="projA"
+
+# Optional: Project branding
+export PROJECT_NAME="MyProject"
 ```
 
 ## Usage
@@ -113,9 +129,12 @@ npm run dev
         "MYSQL_USER": "your_user",
         "MYSQL_PASSWORD": "your_password",
         "MYSQL_DATABASE": "your_database",
+        "READONLY": "false",
         "ALLOW_DDL": "false",
         "ALLOW_DROP": "false",
-        "ALLOW_DELETE": "false"
+        "ALLOW_DELETE": "false",
+        "TOOL_PREFIX": "projA",
+        "PROJECT_NAME": "MyProject"
       }
     }
   }
@@ -133,21 +152,86 @@ npm run dev
     "mysql": {
       "command": "npx",
       "args": ["@liangshanli/mcp-server-mysql"],
-      "args": ["@liangshanli/mcp-server-mysql"],
       "env": {
         "MYSQL_HOST": "your_host",
         "MYSQL_PORT": "3306",
         "MYSQL_USER": "your_user",
         "MYSQL_PASSWORD": "your_password",
         "MYSQL_DATABASE": "your_database",
+        "READONLY": "false",
         "ALLOW_DDL": "false",
         "ALLOW_DROP": "false",
-        "ALLOW_DELETE": "false"
+        "ALLOW_DELETE": "false",
+        "TOOL_PREFIX": "projA",
+        "PROJECT_NAME": "MyProject"
       }
     }
   }
 }
 ```
+
+### Multiple MySQL Server Instances Support
+
+You can configure multiple MySQL server instances with different `TOOL_PREFIX` and `PROJECT_NAME` to isolate tools and configurations. This is useful when you need to connect to multiple databases simultaneously.
+
+**Example: Cursor Editor Configuration**
+
+Create `.cursor/mcp.json` file:
+
+```json
+{
+  "mcpServers": {
+    "local-mysql": {
+      "disabled": false,
+      "timeout": 60,
+      "command": "npx",
+      "args": ["@liangshanli/mcp-server-mysql"],
+      "env": {
+        "MYSQL_HOST": "localhost",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "your_user",
+        "MYSQL_PASSWORD": "your_password",
+        "MYSQL_DATABASE": "your_database",
+        "ALLOW_DDL": "true",
+        "ALLOW_DROP": "true",
+        "ALLOW_DELETE": "false",
+        "TOOL_PREFIX": "local",
+        "PROJECT_NAME": "local-mysql"
+      }
+    },
+    "online-mysql": {
+      "disabled": false,
+      "timeout": 60,
+      "command": "npx",
+      "args": ["@liangshanli/mcp-server-mysql"],
+      "env": {
+        "MYSQL_HOST": "your_remote_host",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "your_user",
+        "MYSQL_PASSWORD": "your_password",
+        "MYSQL_DATABASE": "your_database",
+        "READONLY": "true",
+        "ALLOW_DDL": "false",
+        "ALLOW_DROP": "false",
+        "ALLOW_DELETE": "false",
+        "TOOL_PREFIX": "online",
+        "PROJECT_NAME": "online-mysql"
+      }
+    }
+  }
+}
+```
+
+**Benefits of Multiple Instances:**
+
+- **Tool Isolation**: Each instance has its own tool names (e.g., `local_sql_query`, `online_sql_query`)
+- **Config Isolation**: Logs and DDL files are stored in separate directories (e.g., `./.setting.local/`, `./.setting.online/`)
+- **Different Permissions**: Configure different permission levels for each instance (e.g., readonly for production, full access for development)
+- **Project Branding**: Each instance can have its own project name for better identification
+
+**Note**: When using multiple instances, tools will be prefixed with `TOOL_PREFIX`. For example:
+- `local_sql_query` - queries the local database
+- `online_sql_query` - queries the online database (readonly)
 
 ### As MCP Server
 
@@ -243,7 +327,7 @@ The server communicates with MCP clients via stdin/stdout after startup:
 ## Logging
 
 ### General Logs
-Log file location: `./logs/mcp-mysql.log`
+Log file location: `./.setting/mcp-mysql.log` (or `./.setting.<TOOL_PREFIX>/mcp-mysql.log` if TOOL_PREFIX is set)
 
 Logged content:
 - All requests and responses
@@ -252,7 +336,7 @@ Logged content:
 - Connection pool status changes
 
 ### DDL SQL Logs (v2.0.1+)
-DDL log file location: `./logs/ddl.sql`
+DDL log file location: `./.setting/ddl.sql` (or `./.setting.<TOOL_PREFIX>/ddl.sql` if TOOL_PREFIX is set)
 
 Features:
 - **Success-Only Recording**: Only successful DDL operations are recorded
@@ -307,10 +391,13 @@ CREATE INDEX idx_email ON users(email);
 | MYSQL_USER | root | MySQL username |
 | MYSQL_PASSWORD | | MySQL password |
 | MYSQL_DATABASE | | Database name |
+| READONLY | false | If set to 'true', only SELECT and SHOW commands are allowed. This check has the highest priority and overrides all other permission settings |
 | ALLOW_DDL | false | Whether to allow DDL operations (CREATE, ALTER, TRUNCATE, RENAME, COMMENT). Set to 'true' to enable |
 | ALLOW_DROP | false | Whether to allow DROP operations. Set to 'true' to enable |
 | ALLOW_DELETE | false | Whether to allow DELETE operations. Set to 'true' to enable |
-| MCP_LOG_DIR | ./logs | Log directory |
+| TOOL_PREFIX | | Optional tool prefix for tool names and config isolation. Example: `export TOOL_PREFIX="projA"` |
+| PROJECT_NAME | | Optional project branding for tool descriptions |
+| MCP_LOG_DIR | ./.setting (or ./.setting.<TOOL_PREFIX> if TOOL_PREFIX is set) | Log directory |
 | MCP_LOG_FILE | mcp-mysql.log | Log filename |
 | MCP_DDL_LOG_FILE | ddl.sql | DDL SQL log filename (v2.0.1+) |
 
@@ -345,6 +432,7 @@ export MYSQL_PORT=3306
 export MYSQL_USER=root
 export MYSQL_PASSWORD=your_password
 export MYSQL_DATABASE=your_database
+export READONLY=false
 export ALLOW_DDL=false
 export ALLOW_DROP=false
 export ALLOW_DELETE=false
@@ -352,22 +440,29 @@ export ALLOW_DELETE=false
 
 **Permission Control Examples:**
 ```bash
+# Readonly mode: Only SELECT and SHOW commands allowed (highest priority)
+export READONLY=true
+
 # Default: Disable all destructive operations (safe mode)
+export READONLY=false
 export ALLOW_DDL=false
 export ALLOW_DROP=false
 export ALLOW_DELETE=false
 
 # Allow DDL but disable DROP and DELETE
+export READONLY=false
 export ALLOW_DDL=true
 export ALLOW_DROP=false
 export ALLOW_DELETE=false
 
 # Allow everything except DELETE
+export READONLY=false
 export ALLOW_DDL=true
 export ALLOW_DROP=true
 export ALLOW_DELETE=false
 
 # Enable all operations (use with caution)
+export READONLY=false
 export ALLOW_DDL=true
 export ALLOW_DROP=true
 export ALLOW_DELETE=true

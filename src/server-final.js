@@ -8,9 +8,19 @@ const ddlSqlLogs = [];
 const MAX_LOGS = 1000;
 const MAX_DDL_LOGS = 500;
 
+// Get tool prefix and project name
+const TOOL_PREFIX = process.env.TOOL_PREFIX || '';
+const PROJECT_NAME = process.env.PROJECT_NAME || '';
+
 // Get log directory and filename
 const getLogConfig = () => {
-  const logDir = process.env.MCP_LOG_DIR || './logs';
+  // Default log directory: .setting/ or .setting.<TOOL_PREFIX>/
+  let defaultLogDir = './.setting';
+  if (TOOL_PREFIX) {
+    defaultLogDir = `./.setting.${TOOL_PREFIX}`;
+  }
+  
+  const logDir = process.env.MCP_LOG_DIR || defaultLogDir;
   const logFile = process.env.MCP_LOG_FILE || 'mcp-mysql.log';
   const ddlLogFile = process.env.MCP_DDL_LOG_FILE || 'ddl.sql';
   return {
@@ -130,6 +140,7 @@ const getDbConfig = () => ({
   database: process.env.MYSQL_DATABASE || '',
 });
 
+const READONLY = process.env.READONLY === 'true';
 const ALLOW_DDL = process.env.ALLOW_DDL === 'true';
 const ALLOW_DROP = process.env.ALLOW_DROP === 'true';
 const ALLOW_DELETE = process.env.ALLOW_DELETE === 'true';
@@ -137,14 +148,21 @@ const ALLOW_DELETE = process.env.ALLOW_DELETE === 'true';
 // 启动日志
 console.error('=== MCP MySQL Server Starting ===');
 console.error(`Time: ${new Date().toISOString()}`);
-console.error(`Environment: ALLOW_DDL=${ALLOW_DDL}, ALLOW_DROP=${ALLOW_DROP}, ALLOW_DELETE=${ALLOW_DELETE}`);
+console.error(`Environment: READONLY=${READONLY}, ALLOW_DDL=${ALLOW_DDL}, ALLOW_DROP=${ALLOW_DROP}, ALLOW_DELETE=${ALLOW_DELETE}`);
 console.error(`Database: ${process.env.MYSQL_HOST || 'localhost'}:${process.env.MYSQL_PORT || '3306'}`);
 console.error(`User: ${process.env.MYSQL_USER || 'root'}`);
 console.error(`Database: ${process.env.MYSQL_DATABASE || 'default'}`);
+if (TOOL_PREFIX) {
+  console.error(`Tool Prefix: ${TOOL_PREFIX}`);
+}
+if (PROJECT_NAME) {
+  console.error(`Project Name: ${PROJECT_NAME}`);
+}
 console.error(`Started via: ${process.argv[1]}`);
 
 // 显示 DDL 日志配置
 const logConfig = getLogConfig();
+console.error(`Log Directory: ${logConfig.dir}`);
 console.error(`DDL SQL Log File: ${logConfig.ddlFullPath}`);
 console.error('================================');
 
@@ -172,6 +190,14 @@ class FinalMCPServer {
     }
 
     const sqlTrimmed = sql.trim();
+    
+    // Check readonly mode first (highest priority)
+    if (READONLY) {
+      const readonlyRegex = /^(select|show)\s/i;
+      if (!readonlyRegex.test(sqlTrimmed)) {
+        throw new Error('Readonly mode is enabled. Only SELECT and SHOW commands are allowed');
+      }
+    }
     
     // Check DDL operations
     const ddlRegex = /^(create|alter|truncate|rename|comment)\s/i;
@@ -248,6 +274,7 @@ class FinalMCPServer {
           host: getDbConfig().host,
           port: getDbConfig().port,
           database: getDbConfig().database,
+          readonly: READONLY,
           allowDDL: ALLOW_DDL,
           allowDrop: ALLOW_DROP,
           allowDelete: ALLOW_DELETE,
@@ -313,14 +340,44 @@ class FinalMCPServer {
   // Check permissions for DDL, DROP, DELETE operations
     async check_permissions(params) {
     // Get environment variable configurations
+    const readonly = process.env.READONLY === 'true';
     const allowDDL = process.env.ALLOW_DDL === 'true';
     const allowDrop = process.env.ALLOW_DROP === 'true';
     const allowDelete = process.env.ALLOW_DELETE === 'true';
 
+    // Build permission messages
+    const messages = [];
+    if (readonly) {
+      messages.push('⚠️ Readonly mode is enabled. Only SELECT and SHOW commands are allowed. All other operations are blocked.');
+    } else {
+      if (!allowDDL) {
+        messages.push('❌ DDL operations (CREATE, ALTER, TRUNCATE, RENAME, COMMENT) are not allowed');
+      } else {
+        messages.push('✅ DDL operations are allowed');
+      }
+      
+      if (!allowDrop) {
+        messages.push('❌ DROP operations are not allowed');
+      } else {
+        messages.push('✅ DROP operations are allowed');
+      }
+      
+      if (!allowDelete) {
+        messages.push('❌ DELETE operations are not allowed');
+      } else {
+        messages.push('✅ DELETE operations are allowed');
+      }
+    }
+
     return {
+      readonly: readonly,
       allowDDL: allowDDL,
       allowDrop: allowDrop,
       allowDelete: allowDelete,
+      messages: messages,
+      summary: readonly 
+        ? 'Readonly mode: Only SELECT and SHOW commands allowed'
+        : `DDL: ${allowDDL ? 'allowed' : 'blocked'}, DROP: ${allowDrop ? 'allowed' : 'blocked'}, DELETE: ${allowDelete ? 'allowed' : 'blocked'}`,
       config: {
         host: getDbConfig().host,
         port: getDbConfig().port,
@@ -328,6 +385,7 @@ class FinalMCPServer {
         user: getDbConfig().user
       },
       environmentVariables: {
+        READONLY: readonly,
         ALLOW_DDL: allowDDL,
         ALLOW_DROP: allowDrop,
         ALLOW_DELETE: allowDelete
@@ -475,11 +533,24 @@ class FinalMCPServer {
             }
           };
         } else if (method === 'tools/list') {
+          // Build tool name with prefix
+          const getToolName = (baseName) => {
+            return TOOL_PREFIX ? `${TOOL_PREFIX}_${baseName}` : baseName;
+          };
+          
+          // Build tool description with project name
+          const getToolDescription = (baseDescription) => {
+            if (PROJECT_NAME) {
+              return `[${PROJECT_NAME}] ${baseDescription}`;
+            }
+            return baseDescription;
+          };
+          
           result = {
             tools: [
               {
-                name: 'sql_query',
-                description: 'Execute SQL query, supports DDL and DML operations',
+                name: getToolName('sql_query'),
+                description: getToolDescription('Execute SQL query, supports DDL and DML operations'),
                 inputSchema: {
                   type: 'object',
                   properties: {
@@ -492,16 +563,16 @@ class FinalMCPServer {
                 }
               },
               {
-                name: 'get_database_info',
-                description: 'Get database information, including database list, table list and configuration information',
+                name: getToolName('get_database_info'),
+                description: getToolDescription('Get database information, including database list, table list and configuration information'),
                 inputSchema: {
                   type: 'object',
                   properties: {}
                 }
               },
               {
-                name: 'get_operation_logs',
-                description: 'Get operation logs',
+                name: getToolName('get_operation_logs'),
+                description: getToolDescription('Get operation logs'),
                 inputSchema: {
                   type: 'object',
                   properties: {
@@ -517,16 +588,16 @@ class FinalMCPServer {
                 }
               },
               {
-                name: 'check_permissions',
-                description: 'Check database permissions for DDL, DROP, DELETE and other operations',
+                name: getToolName('check_permissions'),
+                description: getToolDescription('Check database permissions for DDL, DROP, DELETE and other operations. Returns detailed permission status including readonly mode restrictions (only SELECT and SHOW allowed when readonly is enabled)'),
                 inputSchema: {
                   type: 'object',
                   properties: {}
                 }
               },
               {
-                name: 'get_ddl_sql_logs',
-                description: 'Get DDL SQL operation logs',
+                name: getToolName('get_ddl_sql_logs'),
+                description: getToolDescription('Get DDL SQL operation logs'),
                 inputSchema: {
                   type: 'object',
                   properties: {
@@ -544,6 +615,7 @@ class FinalMCPServer {
 
             ],
             environment: {
+              READONLY: READONLY,
               ALLOW_DDL: ALLOW_DDL,
               ALLOW_DROP: ALLOW_DROP,
               ALLOW_DELETE: ALLOW_DELETE,
@@ -551,6 +623,8 @@ class FinalMCPServer {
               MYSQL_PORT: process.env.MYSQL_PORT || '3306',
               MYSQL_USER: process.env.MYSQL_USER || 'root',
               MYSQL_DATABASE: process.env.MYSQL_DATABASE || '',
+              TOOL_PREFIX: TOOL_PREFIX || '',
+              PROJECT_NAME: PROJECT_NAME || '',
               serverInfo: {
                 name: this.name,
                 version: this.version
@@ -634,12 +708,18 @@ class FinalMCPServer {
             throw new Error('Missing tool name');
           }
 
+          // Remove tool prefix if present to get the actual method name
+          let actualMethodName = name;
+          if (TOOL_PREFIX && name.startsWith(`${TOOL_PREFIX}_`)) {
+            actualMethodName = name.substring(TOOL_PREFIX.length + 1);
+          }
+
           // Check if method exists
-          if (!this[name]) {
+          if (!this[actualMethodName]) {
             throw new Error(`Unknown tool: ${name}`);
           }
 
-          result = await this[name](args || {});
+          result = await this[actualMethodName](args || {});
 
           // Tool call results need to be wrapped in content
           // Ensure return format complies with MCP protocol

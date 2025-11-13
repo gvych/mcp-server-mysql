@@ -3,9 +3,18 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+// Get tool prefix for log directory
+const TOOL_PREFIX = process.env.TOOL_PREFIX || '';
+
 // 日志配置
 const getLogConfig = () => {
-  const logDir = process.env.MCP_LOG_DIR || './logs';
+  // Default log directory: .setting/ or .setting.<TOOL_PREFIX>/
+  let defaultLogDir = './.setting';
+  if (TOOL_PREFIX) {
+    defaultLogDir = `./.setting.${TOOL_PREFIX}`;
+  }
+  
+  const logDir = process.env.MCP_LOG_DIR || defaultLogDir;
   const logFile = process.env.MCP_LOG_FILE || 'mcp-mysql-cli.log';
   return {
     dir: logDir,
@@ -73,7 +82,13 @@ function startServer() {
     MYSQL_USER: process.env.MYSQL_USER || 'root',
     MYSQL_PASSWORD: process.env.MYSQL_PASSWORD || '',
     MYSQL_DATABASE: process.env.MYSQL_DATABASE || '',
-    MCP_LOG_DIR: process.env.MCP_LOG_DIR || './logs',
+    READONLY: process.env.READONLY || 'false',
+    ALLOW_DDL: process.env.ALLOW_DDL || 'false',
+    ALLOW_DROP: process.env.ALLOW_DROP || 'false',
+    ALLOW_DELETE: process.env.ALLOW_DELETE || 'false',
+    TOOL_PREFIX: process.env.TOOL_PREFIX || '',
+    PROJECT_NAME: process.env.PROJECT_NAME || '',
+    MCP_LOG_DIR: process.env.MCP_LOG_DIR || (process.env.TOOL_PREFIX ? `./.setting.${process.env.TOOL_PREFIX}` : './.setting'),
     MCP_LOG_FILE: process.env.MCP_LOG_FILE || 'mcp-mysql.log',
     MCP_DDL_LOG_FILE: process.env.MCP_DDL_LOG_FILE || 'ddl.sql',
   };
@@ -83,10 +98,14 @@ function startServer() {
     MYSQL_PORT: env.MYSQL_PORT,
     MYSQL_USER: env.MYSQL_USER,
     MYSQL_DATABASE: env.MYSQL_DATABASE,
-    ALLOW_DDL: process.env.ALLOW_DDL,
-    ALLOW_DROP: process.env.ALLOW_DROP,
-    ALLOW_DELETE: process.env.ALLOW_DELETE,
-    MCP_DDL_LOG_FILE: process.env.MCP_DDL_LOG_FILE || 'ddl.sql'
+    READONLY: env.READONLY,
+    ALLOW_DDL: env.ALLOW_DDL,
+    ALLOW_DROP: env.ALLOW_DROP,
+    ALLOW_DELETE: env.ALLOW_DELETE,
+    TOOL_PREFIX: env.TOOL_PREFIX || '(not set)',
+    PROJECT_NAME: env.PROJECT_NAME || '(not set)',
+    MCP_LOG_DIR: env.MCP_LOG_DIR,
+    MCP_DDL_LOG_FILE: env.MCP_DDL_LOG_FILE
   });
 
   server = spawn('node', [serverPath], {

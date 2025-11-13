@@ -4,7 +4,16 @@
 
 ## 版本历史
 
-### v2.0.1 (最新版本)
+### v3.0.0 (最新版本)
+- ✅ **只读模式**：新增 `READONLY` 环境变量 - 启用后只允许执行 SELECT 和 SHOW 命令（最高优先级检查）
+- ✅ **工具前缀支持**：新增 `TOOL_PREFIX` 环境变量，用于工具名称隔离和配置分离
+- ✅ **项目品牌**：新增 `PROJECT_NAME` 环境变量，用于自定义工具描述
+- ✅ **增强权限检查**：改进了 `check_permissions` 工具，包含详细消息和只读模式警告
+- ✅ **默认日志路径**：将默认日志目录从 `./logs` 改为 `./.setting`（如果设置了前缀则为 `./.setting.<TOOL_PREFIX>`）
+- ✅ **多实例支持**：完整支持运行多个 MySQL 服务器实例，配置相互隔离
+- ✅ **改进 CLI**：更新 CLI 以支持所有新环境变量和日志路径配置
+
+### v2.0.1
 - ✅ **DDL SQL 日志记录**：新增专门的 DDL SQL 操作日志记录到 `ddl.sql` 文件
 - ✅ **仅记录成功操作**：只有成功的 DDL 操作才会记录到 SQL 文件中
 - ✅ **时间戳条目**：每个 DDL 操作都包含精确的时间戳注释
@@ -57,9 +66,16 @@ export MYSQL_PORT=3306
 export MYSQL_USER=root
 export MYSQL_PASSWORD=your_password
 export MYSQL_DATABASE=your_database
+export READONLY=false
 export ALLOW_DDL=true
 export ALLOW_DROP=false
 export ALLOW_DELETE=false
+
+# 可选：工具前缀，用于配置隔离
+export TOOL_PREFIX="projA"
+
+# 可选：项目品牌名称
+export PROJECT_NAME="MyProject"
 ```
 
 ## 使用方法
@@ -113,9 +129,12 @@ npm run dev
         "MYSQL_USER": "your_user",
         "MYSQL_PASSWORD": "your_password",
         "MYSQL_DATABASE": "your_database",
+        "READONLY": "false",
         "ALLOW_DDL": "false",
         "ALLOW_DROP": "false",
-        "ALLOW_DELETE": "false"
+        "ALLOW_DELETE": "false",
+        "TOOL_PREFIX": "projA",
+        "PROJECT_NAME": "MyProject"
       }
     }
   }
@@ -139,14 +158,80 @@ npm run dev
         "MYSQL_USER": "your_user",
         "MYSQL_PASSWORD": "your_password",
         "MYSQL_DATABASE": "your_database",
+        "READONLY": "false",
         "ALLOW_DDL": "false",
         "ALLOW_DROP": "false",
-        "ALLOW_DELETE": "false"
+        "ALLOW_DELETE": "false",
+        "TOOL_PREFIX": "projA",
+        "PROJECT_NAME": "MyProject"
       }
     }
   }
 }
 ```
+
+### 多 MySQL 服务器实例支持
+
+您可以配置多个 MySQL 服务器实例，使用不同的 `TOOL_PREFIX` 和 `PROJECT_NAME` 来隔离工具和配置。这在需要同时连接到多个数据库时非常有用。
+
+**示例：Cursor 编辑器配置**
+
+创建 `.cursor/mcp.json` 文件：
+
+```json
+{
+  "mcpServers": {
+    "local-mysql": {
+      "disabled": false,
+      "timeout": 60,
+      "command": "npx",
+      "args": ["@liangshanli/mcp-server-mysql"],
+      "env": {
+        "MYSQL_HOST": "localhost",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "your_user",
+        "MYSQL_PASSWORD": "your_password",
+        "MYSQL_DATABASE": "your_database",
+        "ALLOW_DDL": "true",
+        "ALLOW_DROP": "true",
+        "ALLOW_DELETE": "false",
+        "TOOL_PREFIX": "local",
+        "PROJECT_NAME": "local-mysql"
+      }
+    },
+    "online-mysql": {
+      "disabled": false,
+      "timeout": 60,
+      "command": "npx",
+      "args": ["@liangshanli/mcp-server-mysql"],
+      "env": {
+        "MYSQL_HOST": "your_remote_host",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "your_user",
+        "MYSQL_PASSWORD": "your_password",
+        "MYSQL_DATABASE": "your_database",
+        "READONLY": "true",
+        "ALLOW_DDL": "false",
+        "ALLOW_DROP": "false",
+        "ALLOW_DELETE": "false",
+        "TOOL_PREFIX": "online",
+        "PROJECT_NAME": "online-mysql"
+      }
+    }
+  }
+}
+```
+
+**多实例的优势：**
+
+- **工具隔离**：每个实例都有自己独立的工具名称（例如：`local_sql_query`、`online_sql_query`）
+- **配置隔离**：日志和 DDL 文件存储在独立的目录中（例如：`./.setting.local/`、`./.setting.online/`）
+- **不同权限**：为每个实例配置不同的权限级别（例如：生产环境只读，开发环境完全访问）
+- **项目品牌**：每个实例可以有自己的项目名称，便于识别
+
+**注意**：使用多个实例时，工具名称会带有 `TOOL_PREFIX` 前缀。例如：
+- `local_sql_query` - 查询本地数据库
+- `online_sql_query` - 查询在线数据库（只读）
 
 ### 作为MCP服务器
 
@@ -242,7 +327,7 @@ npm run dev
 ## 日志
 
 ### 常规日志
-日志文件位置：`./logs/mcp-mysql.log`
+日志文件位置：`./.setting/mcp-mysql.log` (如果设置了TOOL_PREFIX则为 `./.setting.<TOOL_PREFIX>/mcp-mysql.log`)
 
 记录内容：
 - 所有请求和响应
@@ -251,7 +336,7 @@ npm run dev
 - 连接池状态变化
 
 ### DDL SQL 日志 (v2.0.1+)
-DDL 日志文件位置：`./logs/ddl.sql`
+DDL 日志文件位置：`./.setting/ddl.sql` (如果设置了TOOL_PREFIX则为 `./.setting.<TOOL_PREFIX>/ddl.sql`)
 
 功能特性：
 - **仅记录成功操作**：只有成功的 DDL 操作才会被记录
@@ -306,10 +391,13 @@ CREATE INDEX idx_email ON users(email);
 | MYSQL_USER | root | MySQL用户名 |
 | MYSQL_PASSWORD | | MySQL密码 |
 | MYSQL_DATABASE | | 数据库名 |
+| READONLY | false | 如果设置为'true'，只允许执行SELECT和SHOW命令。此检查具有最高优先级，会覆盖所有其他权限设置 |
 | ALLOW_DDL | false | 是否允许DDL操作（CREATE、ALTER、TRUNCATE、RENAME、COMMENT）。设置为'true'启用 |
 | ALLOW_DROP | false | 是否允许DROP操作。设置为'true'启用 |
 | ALLOW_DELETE | false | 是否允许DELETE操作。设置为'true'启用 |
-| MCP_LOG_DIR | ./logs | 日志目录 |
+| TOOL_PREFIX | | 可选工具前缀，用于工具名称和配置隔离。示例：`export TOOL_PREFIX="projA"` |
+| PROJECT_NAME | | 可选项目品牌名称，用于工具描述 |
+| MCP_LOG_DIR | ./.setting (如果设置了TOOL_PREFIX则为 ./.setting.<TOOL_PREFIX>) | 日志目录 |
 | MCP_LOG_FILE | mcp-mysql.log | 日志文件名 |
 | MCP_DDL_LOG_FILE | ddl.sql | DDL SQL 日志文件名 (v2.0.1+) |
 
@@ -344,29 +432,36 @@ export MYSQL_PORT=3306
 export MYSQL_USER=root
 export MYSQL_PASSWORD=your_password
 export MYSQL_DATABASE=your_database
+export READONLY=false
 export ALLOW_DDL=false
 export ALLOW_DROP=false
 export ALLOW_DELETE=false
-```
 
 **权限控制示例：**
 ```bash
+# 只读模式：只允许SELECT和SHOW命令（最高优先级）
+export READONLY=true
+
 # 默认：禁用所有破坏性操作（安全模式）
+export READONLY=false
 export ALLOW_DDL=false
 export ALLOW_DROP=false
 export ALLOW_DELETE=false
 
 # 允许DDL但禁用DROP和DELETE
+export READONLY=false
 export ALLOW_DDL=true
 export ALLOW_DROP=false
 export ALLOW_DELETE=false
 
 # 允许所有操作但禁用DELETE
+export READONLY=false
 export ALLOW_DDL=true
 export ALLOW_DROP=true
 export ALLOW_DELETE=false
 
 # 启用所有操作（谨慎使用）
+export READONLY=false
 export ALLOW_DDL=true
 export ALLOW_DROP=true
 export ALLOW_DELETE=true
