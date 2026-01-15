@@ -138,6 +138,7 @@ const getDbConfig = () => ({
   user: process.env.MYSQL_USER || 'root',
   password: process.env.MYSQL_PASSWORD || '',
   database: process.env.MYSQL_DATABASE || '',
+  ...(process.env.MYSQL_SSL === 'true' && { ssl: {} })
 });
 
 const READONLY = process.env.READONLY === 'true';
@@ -413,7 +414,7 @@ class FinalMCPServer {
   async checkConnectionPoolHealth() {
     if (!this.connectionPool) {
       return false;
-    }
+    }configurable (enabled/disabled) 
     
     try {
       const conn = await this.connectionPool.getConnection();
@@ -438,7 +439,8 @@ class FinalMCPServer {
           connectionLimit: 10,
           acquireTimeout: 60000,
           timeout: 60000,
-          queueLimit: 0
+          queueLimit: 0,
+          ssl: {}
         });
         
         // Test connection pool
@@ -754,7 +756,8 @@ class FinalMCPServer {
               connectionLimit: 10,
               acquireTimeout: 60000,
               timeout: 60000,
-              queueLimit: 0
+              queueLimit: 0,
+              ssl: {}
             });
             
             // Test connection pool

@@ -66,6 +66,7 @@ export MYSQL_PORT=3306
 export MYSQL_USER=root
 export MYSQL_PASSWORD=your_password
 export MYSQL_DATABASE=your_database
+export MYSQL_SSL=false
 export READONLY=false
 export ALLOW_DDL=true
 export ALLOW_DROP=false
@@ -129,6 +130,7 @@ npm run dev
         "MYSQL_USER": "your_user",
         "MYSQL_PASSWORD": "your_password",
         "MYSQL_DATABASE": "your_database",
+        "MYSQL_SSL": "false",
         "READONLY": "false",
         "ALLOW_DDL": "false",
         "ALLOW_DROP": "false",
@@ -158,6 +160,7 @@ npm run dev
         "MYSQL_USER": "your_user",
         "MYSQL_PASSWORD": "your_password",
         "MYSQL_DATABASE": "your_database",
+        "MYSQL_SSL": "false",
         "READONLY": "false",
         "ALLOW_DDL": "false",
         "ALLOW_DROP": "false",
@@ -192,6 +195,7 @@ Create `.cursor/mcp.json` file:
         "MYSQL_USER": "your_user",
         "MYSQL_PASSWORD": "your_password",
         "MYSQL_DATABASE": "your_database",
+        "MYSQL_SSL": "false",
         "ALLOW_DDL": "true",
         "ALLOW_DROP": "true",
         "ALLOW_DELETE": "false",
@@ -210,6 +214,7 @@ Create `.cursor/mcp.json` file:
         "MYSQL_USER": "your_user",
         "MYSQL_PASSWORD": "your_password",
         "MYSQL_DATABASE": "your_database",
+        "MYSQL_SSL": "true",
         "READONLY": "true",
         "ALLOW_DDL": "false",
         "ALLOW_DROP": "false",
@@ -391,6 +396,7 @@ CREATE INDEX idx_email ON users(email);
 | MYSQL_USER | root | MySQL username |
 | MYSQL_PASSWORD | | MySQL password |
 | MYSQL_DATABASE | | Database name |
+| MYSQL_SSL | false | If set to 'true', enables SSL connection to MySQL server |
 | READONLY | false | If set to 'true', only SELECT and SHOW commands are allowed. This check has the highest priority and overrides all other permission settings |
 | ALLOW_DDL | false | Whether to allow DDL operations (CREATE, ALTER, TRUNCATE, RENAME, COMMENT). Set to 'true' to enable |
 | ALLOW_DROP | false | Whether to allow DROP operations. Set to 'true' to enable |
@@ -432,6 +438,7 @@ export MYSQL_PORT=3306
 export MYSQL_USER=root
 export MYSQL_PASSWORD=your_password
 export MYSQL_DATABASE=your_database
+export MYSQL_SSL=false
 export READONLY=false
 export ALLOW_DDL=false
 export ALLOW_DROP=false
