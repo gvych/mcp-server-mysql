@@ -414,7 +414,7 @@ class FinalMCPServer {
   async checkConnectionPoolHealth() {
     if (!this.connectionPool) {
       return false;
-    }configurable (enabled/disabled) 
+    }
     
     try {
       const conn = await this.connectionPool.getConnection();
