@@ -66,6 +66,7 @@ export MYSQL_PORT=3306
 export MYSQL_USER=root
 export MYSQL_PASSWORD=your_password
 export MYSQL_DATABASE=your_database
+export MYSQL_SSL=false
 export READONLY=false
 export ALLOW_DDL=true
 export ALLOW_DROP=false
@@ -192,6 +193,7 @@ npm run dev
         "MYSQL_USER": "your_user",
         "MYSQL_PASSWORD": "your_password",
         "MYSQL_DATABASE": "your_database",
+        "MYSQL_SSL": "false",
         "ALLOW_DDL": "true",
         "ALLOW_DROP": "true",
         "ALLOW_DELETE": "false",
@@ -210,6 +212,7 @@ npm run dev
         "MYSQL_USER": "your_user",
         "MYSQL_PASSWORD": "your_password",
         "MYSQL_DATABASE": "your_database",
+        "MYSQL_SSL": "true",
         "READONLY": "true",
         "ALLOW_DDL": "false",
         "ALLOW_DROP": "false",
@@ -391,6 +394,7 @@ CREATE INDEX idx_email ON users(email);
 | MYSQL_USER | root | MySQL用户名 |
 | MYSQL_PASSWORD | | MySQL密码 |
 | MYSQL_DATABASE | | 数据库名 |
+| MYSQL_SSL | false | 如果设置为'true'，启用与MySQL服务器的SSL连接 |
 | READONLY | false | 如果设置为'true'，只允许执行SELECT和SHOW命令。此检查具有最高优先级，会覆盖所有其他权限设置 |
 | ALLOW_DDL | false | 是否允许DDL操作（CREATE、ALTER、TRUNCATE、RENAME、COMMENT）。设置为'true'启用 |
 | ALLOW_DROP | false | 是否允许DROP操作。设置为'true'启用 |
@@ -432,6 +436,7 @@ export MYSQL_PORT=3306
 export MYSQL_USER=root
 export MYSQL_PASSWORD=your_password
 export MYSQL_DATABASE=your_database
+export MYSQL_SSL=false
 export READONLY=false
 export ALLOW_DDL=false
 export ALLOW_DROP=false
