@@ -439,7 +439,8 @@ class FinalMCPServer {
           connectionLimit: 10,
           acquireTimeout: 60000,
           timeout: 60000,
-          queueLimit: 0
+          queueLimit: 0,
+          ssl: {}
         });
         
         // Test connection pool
@@ -755,7 +756,8 @@ class FinalMCPServer {
               connectionLimit: 10,
               acquireTimeout: 60000,
               timeout: 60000,
-              queueLimit: 0
+              queueLimit: 0,
+              ssl: {}
             });
             
             // Test connection pool
